@@ -1,7 +1,9 @@
 Install VS code(https://code.visualstudio.com/download)if not installed alraedy 
 Optional:Install playwright from extensions 
-Clone the folder using 
-
+Clone the folder using url:https://github.com/Parnshresth/Open-EMR.git
+To execute test use code :npx playwright test
+Write code using bash npm install
+npx playwright test
 Under that create "Tests" folder (openEMR.spec.js)
 [Playwright Docs](https://playwright.dev)
 https://github.com/Parnshresth/Open-EMR.git
