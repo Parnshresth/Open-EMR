@@ -1,6 +1,7 @@
 Install VS code(https://code.visualstudio.com/download)if not installed alraedy 
 Optional:Install playwright from extensions 
-Create folder for New project in localhost
+Clone the folder using 
+
 Under that create "Tests" folder (openEMR.spec.js)
 [Playwright Docs](https://playwright.dev)
 https://github.com/Parnshresth/Open-EMR.git
