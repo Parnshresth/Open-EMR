@@ -1,3 +1,4 @@
+feature/branch-login-tests
 Install VS code(https://code.visualstudio.com/download)if not installed alraedy 
 Install playwright from extension icon on the left hand side  bar (Step is optional if not present)
 Navigate to Terminal - New Terminal 
