@@ -1,4 +1,4 @@
-Need to install VS code
+Install VS code
 Download Playwright
 Create folder for New project in localhost
 Under that create "Tests" folder (openEMR.spec.js)
