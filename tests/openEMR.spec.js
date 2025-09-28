@@ -39,7 +39,7 @@ await expect(menu).toBeVisible();
 });
 
 test('@patient @create Patient > Create new patient', async ({ page }) => {
-  // / Patient → New/Search
+
   const nav = page.getByRole('navigation');
   await nav.getByRole('button', { name: 'Patient' }).click();
 
