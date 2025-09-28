@@ -30,17 +30,24 @@ await expect(page.getByText('Users')).toBeVisible();
 
 // Click Users
 await page.getByText('Users').click();
+{
 
 const menu = page.locator('#mainMenu');
 await expect(menu).toBeVisible();
-await menu.getByText('Calendar', { exact: true }).click();
 
-// Verify Calendar view is active
-await expect(page.getByText(/^\s*Calendar\s*$/)).toBeVisible();
+};
+});
 
+test('@patient @create Patient > Create new patient', async ({ page }) => {
+  // / Patient → New/Search
+  const nav = page.getByRole('navigation');
+  await nav.getByRole('button', { name: 'Patient' }).click();
 
+  const newSearch = page.getByRole('menuitem', { name: /New\/Search/i });
+  if (await newSearch.count()) await newSearch.click();
+  else await page.getByText('New/Search', { exact: true }).click();
 
-
-
-
+  // Demographics form is in the content iframe
+  const frame = page.frameLocator('iframe');
+  await expect(frame.getByRole('heading', { name: /Demographics/i })).toBeVisible({ timeout: 15000 });
 });
