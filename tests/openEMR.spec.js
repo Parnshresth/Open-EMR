@@ -32,8 +32,7 @@ await expect(page.getByText('Users')).toBeVisible();
 await page.getByText('Users').click();
 });
 
-
-// tests/example.spec.js
+//
 
 test('Patient > Create new patient (minimal required fields)', async ({ page }) => {
   // --- Login ---
