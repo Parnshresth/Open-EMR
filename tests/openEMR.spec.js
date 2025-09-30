@@ -36,22 +36,24 @@ await page.getByText('Users').click();
 
 test('Patient > Create new patient (minimal required fields)', async ({ page }) => {
   // --- Login ---
-  await page.goto('https://demo.openemr.io/openemr', { waitUntil: 'domcontentloaded', timeout: 90_000 });
+    await page.goto('https://demo.openemr.io/openemr', {
+    waitUntil: 'domcontentloaded',
+    timeout: 90_000,
+  });
 
-  const lang = page.locator("select[name='languageChoice']");
-  if (await lang.isVisible()) {
-    await lang.selectOption({ label: 'English (Standard)' });
-    await expect(lang.locator('option:checked')).toHaveText('English (Standard)');
-  }
+ // Use stable attribute instead of role+name (no accessible name on this page)
+  const langSelect = page.locator("select[name='languageChoice']");
+  await expect(langSelect).toBeVisible();
 
-  await page.fill('#authUser', 'admin');
-  await page.fill('#clearPass', 'pass');
-  await Promise.all([
-    page.waitForURL(/interface\/main\/.*|login_screen\.php\?error=1/i, { timeout: 30_000 }),
-    page.click('#login-button'),
-  ]);
-  if (/error=1/i.test(page.url())) throw new Error('Login failed');
-  await expect(page.getByRole('navigation')).toBeVisible({ timeout: 15000 });
+  await langSelect.selectOption({ label: 'English (Standard)' });
+  await expect(langSelect.locator('option:checked')).toHaveText('English (Standard)');
+
+
+  
+    await page.fill('#authUser', 'admin');
+    await page.fill('#clearPass', 'pass');
+    await page.click('#login-button');
+    await expect(page.locator('#mainMenu')).toBeVisible(({ timeout: 15_000 }));
 
   // --- Given I’m on Patient → New/Search ---
   const nav = page.getByRole('navigation');
@@ -61,7 +63,7 @@ test('Patient > Create new patient (minimal required fields)', async ({ page }) 
   const pat = page.frameLocator('iframe[name="pat"]');
   await expect(
     pat.getByRole('heading', { name: /Search or Add Patient|Demographics/i })
-  ).toBeVisible({ timeout: 15000 });
+  ).toBeVisible({ timeout: 50000 });
 
   // --- When I enter First/Last name, DOB, Sex, (Facility if required) ---
   const unique = Date.now().toString().slice(-6);
