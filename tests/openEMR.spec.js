@@ -36,10 +36,10 @@ await page.getByText('Users').click();
 
 test('Patient > Create new patient (minimal required fields)', async ({ page }) => {
   // --- Login ---
-    await page.goto('https://demo.openemr.io/openemr', {
-    waitUntil: 'domcontentloaded',
+    await page.goto('https://demo.openemr.io/openemr',{
+      waitUntil: 'domcontentloaded',
     timeout: 90_000,
-  });
+  }); 
 
  // Use stable attribute instead of role+name (no accessible name on this page)
   const langSelect = page.locator("select[name='languageChoice']");
@@ -53,7 +53,7 @@ test('Patient > Create new patient (minimal required fields)', async ({ page }) 
     await page.fill('#authUser', 'admin');
     await page.fill('#clearPass', 'pass');
     await page.click('#login-button');
-    await expect(page.locator('#mainMenu')).toBeVisible({ timeout: 15_000 });
+await expect(page.locator('#mainMenu')).toBeVisible({ timeout: 15_000 });
 
  await test.step('Navigate to Patient → New/Search', async () => {
   const nav = page.getByRole('navigation');
@@ -76,20 +76,30 @@ test('Patient > Create new patient (minimal required fields)', async ({ page }) 
 await pat.getByRole('button', { name: /Add New Patient|Create New Patient/i }).click();
 
 
-//Work inside the modal frame
-const modal = page.frameLocator('iframe[name="modalframe"]');
+// Decide which frame hosts the form (modal vs inline)
+const modalEl   = page.locator('iframe[name="modalframe"]');
+const formFrame = (await modalEl.isVisible())
+  ? page.frameLocator('iframe[name="modalframe"]') // modal-based form
+  : pat;                                           // inline form in 'pat'
 
-// Use stable attribute selectors (labels are unreliable here)
-const firstName = modal.locator('input[name="fname"], input[name="form_fname"], #form_fname');
-const lastName  = modal.locator('input[name="lname"], input[name="form_lname"], #form_lname');
-const dob       = modal.locator('input[name="DOB"], input[name="form_DOB"], input[name="dob"], #form_DOB');
+// ---- Fill required fields using stable attributes ----
+const firstName = formFrame.locator('#form_fname, input[name="form_fname"], input[name="fname"]');
+const lastName  = formFrame.locator('#form_lname, input[name="form_lname"], input[name="lname"]');
+const dob       = formFrame.locator('#form_DOB, input[name="form_DOB"], input[name="DOB"], input[name="dob"]');
+const sexSelect = formFrame.locator('select[name="sex"], select[name="form_sex"]');
 
- // replaces the failing getByLabel wait
-await expect(modal.locator('#FirstName')).toBeVisible({ timeout: 30_000 });
+await expect(firstName).toBeVisible({ timeout: 15_000 });
 await firstName.fill('John');
-await lastName.fill('ju');
-  await modal.getByLabel(/Date of Birth|DOB/i).fill('2000-01-01'); // ISO format is typically accepted
-  await modal.getByLabel(/^Sex$/i).selectOption({ label: 'Male' });
+await lastName.fill('Ju');
+
+// DOB: some builds expect US format
+await dob.fill('01/01/2000'); // use '2000-01-01' if your build accepts ISO
+
+if (await sexSelect.count()) {
+  await sexSelect.selectOption({ label: 'Male' });
+} else {
+  await formFrame.getByRole('radio', { name: /Male/i }).check();
+}
 
   // Facility may be required depending on config; set it if present
   const facility = pat.getByLabel(/Facility/i);
@@ -102,14 +112,24 @@ await lastName.fill('ju');
   await pat.getByRole('button', { name: /Create New Patient/i }).click();
 
   // Some builds show a confirm dialog inside the same frame; handle it if it appears
-  const confirm = pat.getByRole('button', { name: /Confirm|OK|Save/i });
-  if (await confirm.count()) {
-    await confirm.first().click();
+  const confirmInForm = formFrame.getByRole('button', { name: /Create New Patient/i }).first();
+if (await confirmInForm.isVisible()) {
+  await confirmInForm.click({ timeout: 10_000 });
+} else {
+  // Fallback: some builds show a top-level confirm
+  const confirmTop = page.getByRole('button', { name: /Create New Patient/i }).first();
+  if (await confirmTop.isVisible()) {
+    await confirmTop.click({ timeout: 10_000 });
   }
+}
 
   // --- Then a new Patient ID is created and the chart header shows the patient ---
   // Verify the patient dashboard/summary shows the created name inside the patient frame
-  await expect(pat.getByText(new RegExp(`${first}\\s+${last}`, 'i'))).toBeVisible({ timeout: 15000 });
+ await expect(
+  pat.getByText(new RegExp('John\\s+Ju', 'i'))
+).toBeVisible({ timeout: 15_000 });
+
+
 
   // (Optional) also check that a PID appears somewhere on the page
   const pidHint = pat.getByText(/Patient\s*ID|PID|Record\s*ID/i);
