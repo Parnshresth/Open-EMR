@@ -53,27 +53,43 @@ test('Patient > Create new patient (minimal required fields)', async ({ page }) 
     await page.fill('#authUser', 'admin');
     await page.fill('#clearPass', 'pass');
     await page.click('#login-button');
-    await expect(page.locator('#mainMenu')).toBeVisible(({ timeout: 15_000 }));
+    await expect(page.locator('#mainMenu')).toBeVisible({ timeout: 15_000 });
 
-  // --- Given I’m on Patient → New/Search ---
+ await test.step('Navigate to Patient → New/Search', async () => {
   const nav = page.getByRole('navigation');
   await nav.getByRole('button', { name: 'Patient' }).click();
+  await nav.getByText('New/Search', { exact: true }).click();
+
+  const pat = page.frameLocator('iframe[name="pat"]');
+  await expect(
+    pat.getByRole('heading', { name: /Search or Add Patient|Demographics/i })
+  ).toBeVisible({ timeout: 15_000 });
+});
 
   // Patient content lives in iframe name="pat"
   const pat = page.frameLocator('iframe[name="pat"]');
   await expect(
     pat.getByRole('heading', { name: /Search or Add Patient|Demographics/i })
-  ).toBeVisible({ timeout: 50000 });
+  ).toBeVisible({ timeout: 50_000 });
 
-  // --- When I enter First/Last name, DOB, Sex, (Facility if required) ---
-  const unique = Date.now().toString().slice(-6);
-  const first = `Auto${unique}`;
-  const last  = `Test${unique}`;
+// Open the create form (this button lives inside 'pat')
+await pat.getByRole('button', { name: /Add New Patient|Create New Patient/i }).click();
 
-  await pat.getByLabel(/First Name/i).fill(first);
-  await pat.getByLabel(/Last Name/i).fill(last);
-  await pat.getByLabel(/Date of Birth|DOB/i).fill('2000-01-01'); // ISO format is typically accepted
-  await pat.getByLabel(/^Sex$/i).selectOption({ label: 'Male' });
+
+//Work inside the modal frame
+const modal = page.frameLocator('iframe[name="modalframe"]');
+
+// Use stable attribute selectors (labels are unreliable here)
+const firstName = modal.locator('input[name="fname"], input[name="form_fname"], #form_fname');
+const lastName  = modal.locator('input[name="lname"], input[name="form_lname"], #form_lname');
+const dob       = modal.locator('input[name="DOB"], input[name="form_DOB"], input[name="dob"], #form_DOB');
+
+ // replaces the failing getByLabel wait
+await expect(modal.locator('#FirstName')).toBeVisible({ timeout: 30_000 });
+await firstName.fill('John');
+await lastName.fill('ju');
+  await modal.getByLabel(/Date of Birth|DOB/i).fill('2000-01-01'); // ISO format is typically accepted
+  await modal.getByLabel(/^Sex$/i).selectOption({ label: 'Male' });
 
   // Facility may be required depending on config; set it if present
   const facility = pat.getByLabel(/Facility/i);
