@@ -123,7 +123,19 @@ if (await confirmInForm.isVisible()) {
   }
 }
 
-  
+  // --- Then a new Patient ID is created and the chart header shows the patient ---
+  // Verify the patient dashboard/summary shows the created name inside the patient frame
+ await expect(
+  pat.locator('.patient-header', { hasText: /John\s+Ju/i })
+).toBeVisible({ timeout: 15000 });
+
+
+
+  // (Optional) also check that a PID appears somewhere on the page
+  const pidHint = pat.getByText(/Patient\s*ID|PID|Record\s*ID/i);
+  if (await pidHint.count()) {
+    await expect(pidHint.first()).toBeVisible();
+  }
 });
 
 
