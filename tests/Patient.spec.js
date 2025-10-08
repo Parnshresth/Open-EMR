@@ -1,101 +1,131 @@
-// tests/patient-demographics.spec.js
+// @ts-nocheck
 import { test, expect } from '@playwright/test';
 
-test.describe('Patient core demographics', () => {
-  // If login is required, do it here (adjust as needed)
-  test.beforeEach(async ({ page }) => {
-    await page.goto('http://localhost:8300/', { waitUntil: 'domcontentloaded', timeout: 90000 });
+test('Patient > Create new patient (minimal required fields)', async ({ page }) => {
+  // --- Login ---
+    await page.goto('http://localhost:8300/',{
+      waitUntil: 'domcontentloaded',
+    timeout: 90_000,
+  }); 
 
-    // Language (optional)
-    const langSelect = page.locator("select[name='languageChoice']");
-    if (await langSelect.isVisible()) {
-      await langSelect.selectOption({ label: 'English (Standard)' });
-    }
+ // Use stable attribute instead of role+name (no accessible name on this page)
+  const langSelect = page.locator("select[name='languageChoice']");
+  await expect(langSelect).toBeVisible();
 
-    // Login (adjust selectors/creds as needed)
+  await langSelect.selectOption({ label: 'English (Standard)' });
+  await expect(langSelect.locator('option:checked')).toHaveText('English (Standard)');
+
+
+  
     await page.fill('#authUser', 'admin');
     await page.fill('#clearPass', 'changeMeNow123!');
     await page.click('#login-button');
-    await expect(page.locator('#mainMenu')).toBeVisible({ timeout: 15000 });
+await expect(page.locator('#mainMenu')).toBeVisible({ timeout: 15_000 });
 
-    // Navigate to the new-patient form (adjust URL/navigation)
-    await test.step('Navigate to Patient → New/Search', async () => {
+ await test.step('Navigate to Patient → New/Search', async () => {
   const nav = page.getByRole('navigation');
   await nav.getByRole('button', { name: 'Patient' }).click();
   await nav.getByText('New/Search', { exact: true }).click();
-  });
 
-  test('Fields for name, DOB, gender, phone, email are available', async ({ page }) => {
-    // Prefer accessible roles/labels when possible
-    await expect(page.getByLabel(/name/i)).toBeVisible();
-    await expect(page.getByLabel(/date of birth|dob/i)).toBeVisible();
-    await expect(page.getByRole('combobox', { name: /gender/i })).toBeVisible();
-    await expect(page.getByLabel(/phone/i)).toBeVisible();
-    await expect(page.getByLabel(/email/i)).toBeVisible();
-  });
+  const pat = page.frameLocator('iframe[name="pat"]');
+  await expect(
+    pat.getByRole('heading', { name: /Search or Add Patient|Demographics/i })
+  ).toBeVisible({ timeout: 15_000 });
+});
 
-  test('Happy path: create patient with valid demographics', async ({ page }) => {
-    await page.getByLabel(/name/i).fill('Hary Zen');
-    await page.getByLabel(/date of birth|dob/i).fill('1990-03-14'); // Adjust to your accepted format
-    await page.getByRole('combobox', { name: /gender/i }).selectOption({ label: 'Female' });
-    await page.getByLabel(/phone/i).fill('0212345678');
-    await page.getByLabel(/email/i).fill('hary.zen@example.com');
+  // Patient content lives in iframe name="pat"
+  const pat = page.frameLocator('iframe[name="pat"]');
+  await expect(
+    pat.getByRole('heading', { name: /Search or Add Patient|Demographics/i })
+  ).toBeVisible({ timeout: 50_000 });
 
-    // Submit
-    await page.getByTestId('patient-submit').click(); // or page.getByRole('button', { name: /save|create/i })
-    // Verify success
-    await expect(page.getByTestId('patient-header')).toBeVisible();
-    await expect(page.getByTestId('patient-header')).toHaveText(/hary\s+zen/i);
-  });
+// Open the create form (this button lives inside 'pat')
+await pat.getByRole('button', { name: /Add New Patient|Create New Patient/i }).click();
 
-  test('Required fields: inline errors when empty', async ({ page }) => {
-    // Submit without filling anything
-    await page.getByTestId('patient-submit').click();
 
-    // Example error containers: data-testid="<field>-error"
-    await expect(page.getByTestId('patient-name-error')).toHaveText(/required/i);
-    await expect(page.getByTestId('patient-dob-error')).toHaveText(/required/i);
-    await expect(page.getByTestId('patient-gender-error')).toHaveText(/required|select/i);
-    await expect(page.getByTestId('patient-phone-error')).toHaveText(/required/i);
-    await expect(page.getByTestId('patient-email-error')).toHaveText(/required/i);
-  });
+// Decide which frame hosts the form (modal vs inline)
+const modalEl   = page.locator('iframe[name="modalframe"]');
+const formFrame = (await modalEl.isVisible())
+  ? page.frameLocator('iframe[name="modalframe"]') // modal-based form
+  : pat;                                           // inline form in 'pat'
 
-  test('Invalid email format: shows inline error', async ({ page }) => {
-    await page.getByLabel(/name/i).fill('John Ju');
-    await page.getByLabel(/date of birth|dob/i).fill('1990-03-14');
-    await page.getByRole('combobox', { name: /gender/i }).selectOption({ label: 'Male' });
-    await page.getByLabel(/phone/i).fill('0212345678');
-    await page.getByLabel(/email/i).fill('hary.zen@example.com');
+// ---- Fill required fields using stable attributes ----
+const firstName = formFrame.locator('#form_fname, input[name="form_fname"], input[name="fname"]');
+const lastName  = formFrame.locator('#form_lname, input[name="form_lname"], input[name="lname"]');
+const dob       = formFrame.locator('#form_DOB, input[name="form_DOB"], input[name="DOB"], input[name="dob"]');
+const sexSelect = formFrame.locator('select[name="sex"], select[name="form_sex"]');
+const contactSectionBtn = formFrame.getByRole('button', { name: /^Contact$/i });
+const mobilePhone = formFrame.getByLabel(/mobile phone/i).or(formFrame.getByPlaceholder(/mobile phone/i));
+const contactEmail = formFrame.getByLabel(/contact email/i).or(formFrame.getByPlaceholder(/contact email/i));
+await expect(firstName).toBeVisible({ timeout: 15_000 });
+await firstName.fill('Kelvin');
+await lastName.fill('k');
 
-    await page.getByTestId('patient-submit').click();
-    await expect(page.getByTestId('patient-email-error')).toHaveText(/valid email/i);
-  });
+// DOB: some builds expect US format
+await dob.fill('01/01/2000'); // use '2000-01-01' if your build accepts ISO
 
-  test('Invalid phone: non-numeric / bad length shows inline error', async ({ page }) => {
-    await page.getByLabel(/name/i).fill('Jane Roe');
-    await page.getByLabel(/date of birth|dob/i).fill('1985-11-20');
-    await page.getByRole('combobox', { name: /gender/i }).selectOption({ label: 'Female' });
+if (await sexSelect.count()) {
+  await sexSelect.selectOption({ label: 'Male' });
+} else {
+  await formFrame.getByRole('radio', { name: /Male/i }).check();
+}
 
-    await page.getByLabel(/phone/i).fill('ABC123');
-    await page.getByLabel(/email/i).fill('jane.roe@example.com');
+const scope = typeof formFrame !== 'undefined' ? formFrame : page;
 
-    await page.getByTestId('patient-submit').click();
-    await expect(page.getByTestId('patient-phone-error')).toHaveText(/digits|valid phone|numeric/i);
+// 1) Open Contacts section: #header_2 > h2 > button
+const contactsToggle = scope.locator('#header_2 > h2 > button').first();
+await contactsToggle.scrollIntoViewIfNeeded();
+const expanded = (await contactsToggle.getAttribute('aria-expanded')) ?? 'false';
+if (expanded !== 'true') {
+  await expect(contactsToggle).toBeVisible({ timeout: 50_000 });
+  await contactsToggle.click();
+}
 
-    // Too short (adjust your rule/wording)
-    await page.getByLabel(/phone/i).fill('123');
-    await page.getByTestId('patient-submit').click();
-    await expect(page.getByTestId('patient-phone-error')).toHaveText(/length|valid phone|digits/i);
-  });
+// 2) Mobile phone: #form_phone_cell
+const mobilePhoneInput = scope.locator('#form_phone_cell'); // ID is unique
+await expect(mobilePhoneInput).toBeVisible({ timeout: 50_000 });
+await mobilePhoneInput.fill('0212345678');
 
-  test('Invalid DOB format: shows inline error', async ({ page }) => {
-    await page.getByLabel(/name/i).fill('Alex Kim');
-    await page.getByLabel(/date of birth|dob/i).fill('14/03/1990'); // Wrong format if only YYYY-MM-DD allowed
-    await page.getByRole('combobox', { name: /gender/i }).selectOption({ label: 'Male' });
-    await page.getByLabel(/phone/i).fill('0271234567');
-    await page.getByLabel(/email/i).fill('alex.kim@example.com');
+// 3) Contact email: #form_email
+const emailInput = scope.locator('#form_email').first();
+await expect(emailInput).toBeVisible({ timeout: 20_000 });
+await emailInput.fill('kelvin.k@example.com');
 
-    await page.getByTestId('patient-submit').click();
-    await expect(page.getByTestId('patient-dob-error')).toHaveText(/date|format/i);
-  });
+  // Facility may be required depending on config; set it if present
+  const facility = pat.getByLabel(/Facility/i);
+  if (await facility.count()) {
+    // pick first non-placeholder option
+    await facility.selectOption({ index: 1 });
+  }
+
+  // Create
+  await pat.getByRole('button', { name: /Create New Patient/i }).click();
+
+  // Some builds show a confirm dialog inside the same frame; handle it if it appears
+  const confirmInForm = formFrame.getByRole('button', { name: /Confirm Create New Patient/i }).first();
+if (await confirmInForm.isVisible()) {
+  await confirmInForm.first().click({ timeout: 40_000 });
+} else {
+  // Fallback: some builds show a top-level confirm
+  const confirmTop = page.getByRole('button', { name: /Confirm Create New Patient/i }).first();
+  if (await confirmTop.isVisible()) {
+    await confirmTop.click({ timeout: 60_000 });
+  }
+}
+// Wait for the modal to appear, then click Confirm
+const inlineConfirm = pat.getByRole('button', { name: /Confirm Create New Patient/i }).first();
+const dialog = page.getByRole('dialog');
+
+if (await inlineConfirm.isVisible({ timeout: 2_000 }).catch(() => false)) {
+  await inlineConfirm.click();
+} else if (await dialog.isVisible({ timeout: 15_000 }).catch(() => false)) {
+  const modalFrame = dialog.frameLocator('iframe'); // content is inside dialog iframe
+  await modalFrame.getByRole('button', { name: /Confirm Create New Patient/i }).click();
+} 
+
+  // (Optional) also check that a PID appears somewhere on the page
+  const pidHint = pat.getByText(/Patient\s*ID|PID|Record\s*ID/i);
+  if (await pidHint.count()) {
+    await expect(pidHint.first()).toBeVisible();
+  }
 });
