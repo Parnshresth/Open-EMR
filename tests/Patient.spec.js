@@ -73,13 +73,10 @@ if (await sexSelect.count()) {
 const scope = typeof formFrame !== 'undefined' ? formFrame : page;
 
 // 1) Open Contacts section: #header_2 > h2 > button
-const contactsToggle = scope.locator('#header_2 > h2 > button').first();
-await contactsToggle.scrollIntoViewIfNeeded();
-const expanded = (await contactsToggle.getAttribute('aria-expanded')) ?? 'false';
-if (expanded !== 'true') {
-  await expect(contactsToggle).toBeVisible({ timeout: 50_000 });
-  await contactsToggle.click();
-}
+const handle = await page.locator('iframe[name="pat"]').elementHandle();
+const patFrame = await handle?.contentFrame();
+await patFrame?.getByRole('button', { name: /^Contact$/i }).click();
+
 
 // 2) Mobile phone: #form_phone_cell
 const mobilePhoneInput = scope.locator('#form_phone_cell'); // ID is unique
@@ -87,9 +84,11 @@ await expect(mobilePhoneInput).toBeVisible({ timeout: 50_000 });
 await mobilePhoneInput.fill('0212345678');
 
 // 3) Contact email: #form_email
-const emailInput = scope.locator('#form_email').first();
+// ---- Email (inside the form frame) ----
+const emailInput = formFrame.locator('#form_email');   // #form_email should be unique
 await expect(emailInput).toBeVisible({ timeout: 20_000 });
 await emailInput.fill('kelvin.k@example.com');
+
 
   // Facility may be required depending on config; set it if present
   const facility = pat.getByLabel(/Facility/i);
@@ -128,4 +127,11 @@ if (await inlineConfirm.isVisible({ timeout: 2_000 }).catch(() => false)) {
   if (await pidHint.count()) {
     await expect(pidHint.first()).toBeVisible();
   }
+
+await page.getByRole('dialog')
+  .frameLocator('iframe')
+  .getByRole('button', { name: /Confirm Create New Patient/i })
+  .click();
+
+
 });
